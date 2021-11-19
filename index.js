@@ -19,7 +19,7 @@ for (let i = 0; i < 100; i++) {
 
 
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.sendFile(__dirname + '/chess.html');
 });
 
 io.on('connection', function (socket) {
@@ -30,7 +30,7 @@ io.on('connection', function (socket) {
 
     console.log(playerId + ' connected');
 
-    socket.on('joined', function (roomId) {
+    socket.on('joinedC', function (roomId) {
         // games[roomId] = {}
         if (games[roomId].players < 2) {
             games[roomId].players++;
@@ -50,12 +50,16 @@ io.on('connection', function (socket) {
 
         socket.emit('player', { playerId, players, color, roomId })
         // players--;
+        if(players==2){
+            color='white';
+            socket.broadcast.emit('player', { playerId, players, color, roomId })
+        }
 
         
     });
 
-    socket.on('move', function (msg) {
-        socket.broadcast.emit('move', msg);
+    socket.on('moveC', function (msg) {
+        socket.broadcast.emit('moveC', msg);
         // console.log(msg);
     });
 
@@ -64,12 +68,38 @@ io.on('connection', function (socket) {
         console.log("ready " + msg);
     });
 
-    socket.on('disconnect', function () {
-        for (let i = 0; i < 100; i++) {
-            if (games[i].pid[0] == playerId || games[i].pid[1] == playerId)
-                games[i].players--;
+    socket.on('gameOver',function(msg){
+        socket.broadcast.emit('gameOver',msg);
+        console.log("Game Over");
+    })
+
+    socket.on('chessStart',function(data){
+        players = games[data].players
+        console.log(players)
+        if(players==1){
+            socket.emit('wait');
         }
+    })
+
+    socket.on('disconnect', function () {
+        var r;
+        for (let i = 0; i < 100; i++) {
+            if (games[i].pid[0] == playerId){
+              games[i].players--;
+              games[i].pid[0]=0;
+              r=i;
+            }else if(games[i].pid[1] == playerId){
+              games[i].players--;
+              games[i].pid[1]=0;
+              r=i;
+            }            
+        }
+
+        socket.broadcast.emit('player1',r); 
+        socket.broadcast.emit('nan',r);
+
         console.log(playerId + ' disconnected');
+        console.log(games[r]);
 
     }); 
 
