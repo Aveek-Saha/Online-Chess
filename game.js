@@ -5,42 +5,123 @@ var color = "white";
 var players;
 var roomId;
 var play = true;
+var gameOn = false;
+var rn;
+var playerType;
 
 var room = document.getElementById("room")
 var roomNumber = document.getElementById("roomNumbers")
 var button = document.getElementById("button")
 var state = document.getElementById('state')
+var btn1 = document.getElementById('btn1')
+var board = document.getElementById('board')
 
-var connect = function(){
-    roomId = room.value;
-    if (roomId !== "" && parseInt(roomId) <= 100) {
-        room.remove();
-        roomNumber.innerHTML = "Room Number " + roomId;
-        button.remove();
-        socket.emit('joined', roomId);
+function begin(){
+    rn=prompt("Enter room number 51-100 :");
+    roomId = rn;
+    if(rn === null){
+        window.location.assign('/');
+    }else if(rn>50 && rn<101){
+        console.log("Room "+rn);
+        socket.emit('joinedC',rn);
+    }else{
+        alert("Enter a valid Room number !!");
+        begin();
+    }
+    
+  }
+
+begin();
+
+// var cfg = {
+//     orientation: color,
+//     draggable: true,
+//     position: 'start',
+//     onDragStart: onDragStart,
+//     onDrop: onDrop,
+//     onMouseoutSquare: onMouseoutSquare,
+//     onMouseoverSquare: onMouseoverSquare,
+//     onSnapEnd: onSnapEnd
+// };
+// board = ChessBoard('board', cfg);
+
+function again(){
+    if(gameOn){
+        state.innerHTML = "Wait for your turn"
+    }else{
+        console.log("chessStart")
+        socket.emit('chessStart',roomId);
     }
 }
 
 socket.on('full', function (msg) {
-    if(roomId == msg)
-        window.location.assign(window.location.href+ 'full.html');
+    if(roomId == msg){
+        console.log("Room full");
+        alert("Room full !! Enter another number.");
+        begin();
+    }
+        
 });
 
 socket.on('play', function (msg) {
     if (msg == roomId) {
         play = false;
+        btn1.innerHTML = 'Again';
         state.innerHTML = "Game in progress"
     }
     // console.log(msg)
 });
 
-socket.on('move', function (msg) {
+socket.on('moveC', function (msg) {
     if (msg.room == roomId) {
         game.move(msg.move);
         board.position(game.fen());
         console.log("moved")
     }
 });
+
+socket.on('gameOver',function(msg){
+    if(msg == roomId){
+        state.innerHTML = 'GAME OVER';
+        btn1.innerHTML = 'Again';
+        gameOn = false;
+    }
+})
+
+socket.on('player1',function(roomId){
+    if(roomId==rn){
+      playerType="1";
+      var plno = document.getElementById('player');
+      plno.innerHTML = 'Player ' + playerType + " : white" ;      
+      console.log("player:"+playerType);
+    }
+})
+  
+  socket.on('player2',function(roomId){
+    if(roomId==rn){
+      playerType="2";
+      var plno = document.getElementById('player');
+      plno.innerHTML = 'Player ' + playerType + " : black";
+      console.log("player:"+playerType);
+    }
+})
+
+socket.on('nan',function(roomId){
+    if(roomId==rn){
+        alert("Opponent left!! Go back.");
+        state.innerHTML = 'GAME OVER';
+        btn1.innerHTML = 'Start';
+        gameOn = false;
+        console.log("nan received")
+        console.log(gameOn)
+    }
+})
+
+socket.on('wait',function(){
+    console.log("Not enough players");
+    alert("Waiting for opponent ... \nAsk your friend to join room "+rn+" .");
+    state.innerHTML = "Waiting for Second player";
+})
 
 var removeGreySquares = function () {
     $('#board .square-55d63').css('background', '');
@@ -81,13 +162,15 @@ var onDrop = function (source, target) {
     });
     if (game.game_over()) {
         state.innerHTML = 'GAME OVER';
+        btn1.innerHTML = 'Again';
+        gameOn = false;
         socket.emit('gameOver', roomId)
     }
 
     // illegal move
     if (move === null) return 'snapback';
     else
-        socket.emit('move', { move: move, board: game.fen(), room: roomId });
+        socket.emit('moveC', { move: move, board: game.fen(), room: roomId });
 
 };
 
@@ -122,14 +205,20 @@ var onSnapEnd = function () {
 socket.on('player', (msg) => {
     var plno = document.getElementById('player')
     color = msg.color;
+    if(color=='white')
+        playerType="1";
+    else
+        playerType="2";
 
-    plno.innerHTML = 'Player ' + msg.players + " : " + color;
+    plno.innerHTML = 'Player ' + playerType + " : " + color;
     players = msg.players;
 
     if(players == 2){
         play = false;
         socket.emit('play', msg.roomId);
+        btn1.innerHTML = 'Again';
         state.innerHTML = "Game in Progress"
+        gameOn = true;
     }
     else
         state.innerHTML = "Waiting for Second player";
